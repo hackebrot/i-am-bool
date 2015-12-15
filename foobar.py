@@ -6,6 +6,10 @@ class TreeElement(object):
         return u'{}'.format(self.__class__.__name__)
 
 
+class UndefinedToken(KeyError):
+    """Raised if a given context does not contain a particular Token."""
+
+
 class Token(TreeElement):
     def __init__(self, value):
         if isinstance(value, TreeElement):
@@ -35,6 +39,12 @@ class Token(TreeElement):
 
     def tokens(self):
         yield self._value
+
+    def __call__(self, context):
+        if self._value not in context:
+            msg = u'Token "{}" is not defined in context {}'
+            raise UndefinedToken(msg.format(self._value, context))
+        return context[self._value]
 
 
 class Not(TreeElement):
@@ -67,6 +77,9 @@ class Not(TreeElement):
     def tokens(self):
         for token in self._child.tokens():
             yield token
+
+    def __call__(self, context):
+        return not self._child(context)
 
 
 class GroupMixin(object):
@@ -109,8 +122,10 @@ class GroupMixin(object):
 
 
 class And(GroupMixin, TreeElement):
-    pass
+    def __call__(self, context):
+        return all(child(context) for child in self._children)
 
 
 class Or(GroupMixin, TreeElement):
-    pass
+    def __call__(self, context):
+        return any(child(context) for child in self._children)
